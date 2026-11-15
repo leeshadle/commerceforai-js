@@ -1,0 +1,66 @@
+{
+  "name": "commerceforai",
+  "version": "0.1.7",
+  "description": "Commerce for apps built by AI. Products, inventory, checkout and orders on top of your Stripe account.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "default": "./dist/react.js"
+    },
+    "./cart": {
+      "types": "./dist/cart-core.d.ts",
+      "default": "./dist/cart-core.js"
+    }
+  },
+  "files": [
+    "dist",
+    "templates"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "prepublishOnly": "pnpm build"
+  },
+  "license": "MIT",
+  "bin": {
+    "commerceforai": "./dist/cli.js"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "react": "19.3.0",
+    "vitest": "^5.0.5"
+  },
+  "homepage": "https://commerceforai.com",
+  "keywords": [
+    "commerce",
+    "ecommerce",
+    "stripe",
+    "checkout",
+    "ai",
+    "agents"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/leeshadle/commerceforai-js.git",
+    "directory": "packages/sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/leeshadle/commerceforai-js/issues"
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "com.commerceforai/mcp",
+  "title": "CommerceForAI",
+  "description": "Run a store on your own Stripe account: products, orders, shipping, returns, print-on-demand.",
+  "version": "0.1.7",
+  "websiteUrl": "https://commerceforai.com/docs/guides/agents",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://api.commerceforai.com/mcp"
+    }
+  ],
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@commerceforai/mcp",
+      "version": "0.1.7",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "COMMERCEFORAI_API_KEY",
+          "description": "Store API key (from the dashboard or `npx commerceforai init`)",
+          "isRequired": true,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "COMMERCEFORAI_READ_ONLY",
+          "description": "Set to true to offer only read tools",
+          "isRequired": false,
+          "format": "string"
+        },
+        {
+          "name": "COMMERCEFORAI_MAX_REFUND",
+          "description": "Largest refund in cents (default 5000)",
+          "isRequired": false,
+          "format": "string"
+        }
+      ]
+    }
+  ]
+}
