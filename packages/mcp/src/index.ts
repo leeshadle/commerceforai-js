@@ -19,10 +19,14 @@ export interface GuardrailConfig {
   maxRefund: number;
   maxLabelCost?: number;
   readOnly: boolean;
+  /** No API key was given: list tools, but every call explains how to get a key. */
+  missingKey?: boolean;
   allow: Set<string> | null;
 }
 
-export const VERSION = "0.1.9";
+export const VERSION = "0.1.10";
+
+const NO_KEY = "No API key: set COMMERCEFORAI_API_KEY in this MCP server's environment. For a free test store with a key and no sign-up, run `npx commerceforai init` (or POST https://api.commerceforai.com/sandbox/stores). Or connect to the hosted server instead: https://api.commerceforai.com/mcp (sign in with the store owner's account).";
 
 /** Tool groups. Loading only what a task needs keeps the agent's context small ("core" is ~20 tools). */
 export const TOOLSETS: Record<string, string[]> = {
@@ -95,6 +99,7 @@ export function buildServer(commerce: Commerce, cfg: GuardrailConfig) {
         annotations: { readOnlyHint: !def.write, destructiveHint: !!def.destructive, openWorldHint: false },
       },
       (async (args: any) => {
+        if (cfg.missingKey) return text(NO_KEY, true);
         try { return await run(args); } catch (e) { return text(`Unexpected error: ${e instanceof Error ? e.message : e}`, true); }
       }) as any,
     );
@@ -596,7 +601,11 @@ export function buildServer(commerce: Commerce, cfg: GuardrailConfig) {
 // Run as a stdio server when executed directly.
 const isMain = import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith("commerceforai-mcp");
 if (isMain) {
-  const commerce = new Commerce(process.env.COMMERCEFORAI_API_KEY);
-  const server = buildServer(commerce, configFromEnv());
+  // Without a key the server still starts and lists its tools (so clients and directories can inspect it);
+  // each tool call then explains how to get one instead of failing silently.
+  const key = process.env.COMMERCEFORAI_API_KEY;
+  if (!key) console.error("COMMERCEFORAI_API_KEY isn't set: tools will explain how to get one. Free test store, no sign-up: npx commerceforai init");
+  const commerce = new Commerce(key || "cfa_test_missing");
+  const server = buildServer(commerce, { ...configFromEnv(), missingKey: !key });
   await server.connect(new StdioServerTransport());
 }
