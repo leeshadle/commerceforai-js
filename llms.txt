@@ -105,6 +105,7 @@ Read only the page you need. Each is a short markdown file.
 - [Print-on-demand](https://commerceforai.com/llms/print-on-demand.md): Printful and Printify: connecting, mapping variants, per-order artwork, creating products in Printify, how orders are sent and shipped.
 - [Store settings](https://commerceforai.com/llms/store.md): Store settings, customer emails and branding, team alerts, test/live sync, Stripe branding, and selling in ChatGPT.
 - [Full API reference](https://commerceforai.com/docs/api-reference.md) · [OpenAPI](https://api.commerceforai.com/openapi.json) · [Webhooks](https://commerceforai.com/docs/webhooks.md) · [Going live](https://commerceforai.com/docs/guides/going-live.md)
+- Use cases: [MCP server for e-commerce](https://commerceforai.com/docs/guides/mcp-server-for-ecommerce.md) · [inventory and orders on top of Stripe](https://commerceforai.com/docs/guides/stripe-inventory-and-orders.md) · [print-on-demand without Shopify](https://commerceforai.com/docs/guides/printify-without-shopify.md) · [no monthly fee](https://commerceforai.com/docs/guides/no-monthly-fee.md)
 - When to use this, Shopify, Stripe alone or a self-hosted engine (and when not to use this): https://commerceforai.com/docs/compare.md
 - Everything in one file (large): https://commerceforai.com/llms-full.txt
 
