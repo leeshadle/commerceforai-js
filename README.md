@@ -99,6 +99,6 @@ This repository is published from CommerceForAI's main repository, so pull reque
 
 ## Links
 
-[Docs](https://commerceforai.com/docs) · [API reference](https://commerceforai.com/docs/api-reference) · [OpenAPI](https://api.commerceforai.com/openapi.json) · [Pricing](https://commerceforai.com/pricing) · [Terms](https://commerceforai.com/terms) · [Privacy](https://commerceforai.com/privacy)
+[Docs](https://commerceforai.com/docs) · [Status](https://commerceforai.com/status) · [API reference](https://commerceforai.com/docs/api-reference) · [OpenAPI](https://api.commerceforai.com/openapi.json) · [Pricing](https://commerceforai.com/pricing) · [Terms](https://commerceforai.com/terms) · [Privacy](https://commerceforai.com/privacy)
 
 MIT licensed.
