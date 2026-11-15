@@ -13,6 +13,7 @@ Part of https://commerceforai.com/llms.txt (start there: setup, rules and the co
 - inventory: list({ low_stock_threshold? }), adjust(variantId, +n | -n, reason?), set(variantId, onHand, reason?)
   - variant.inventory = { tracked, on_hand, reserved, available }
 - moving from Shopify: store.importFromShopify({ csv }) with the contents of Shopify's product export (Products → Export), or { shop: "your-store.myshopify.com", access_token } from a custom app (read_products, read_inventory). MCP: import_from_shopify. Brings products, variants, options, SKUs, prices, stock, images, descriptions; safe to re-run.
+  - history too: store.importFromShopify({ orders_csv, customers_csv }) with Shopify's order export (Orders → Export) and customer export (Customers → Export). Import products first so order lines link by SKU. Past orders arrive as records (order.imported: true) with Shopify's order numbers where free: nothing is charged, emailed, sent to a print provider, taken from stock or counted toward fees; they appear in orders, customers, reports and the customer's account page. Unpaid and pending orders are left out. The customer export carries over tax-exempt status. Discount codes aren't in Shopify's exports: recreate them with discounts.create. Safe to re-run.
 
 ## Image hosting (included, 5 GB per store)
 

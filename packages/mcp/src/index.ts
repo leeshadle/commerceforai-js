@@ -147,9 +147,16 @@ export function buildServer(commerce: Commerce, cfg: GuardrailConfig) {
 
   tool("import_from_shopify", {
     description: "Move products from Shopify: pass shop (your-store.myshopify.com) and a custom app access_token with read_products and read_inventory, or csv with the contents of Shopify's product export (Products → Export). Imports products, variants (options, SKUs, prices), stock, images and descriptions. Safe to re-run: matches by Shopify id or SKU and keeps existing prices and stock.",
-    input: { shop: z.string().optional(), access_token: z.string().optional(), csv: z.string().optional() },
+    input: {
+      shop: z.string().optional(), access_token: z.string().optional(), csv: z.string().optional(),
+      orders_csv: z.string().optional().describe("Contents of Shopify's order export (Orders → Export). Past orders come over as history: never charged, emailed, fulfilled or counted toward fees."),
+      customers_csv: z.string().optional().describe("Contents of Shopify's customer export (Customers → Export). Carries over who is tax-exempt."),
+    },
     write: true,
-  }, async (a) => out(await commerce.store.importFromShopify((a.csv ? { csv: a.csv } : { shop: a.shop ?? "", access_token: a.access_token ?? "" }) as any)));
+  }, async (a) => out(await commerce.store.importFromShopify({
+    ...(a.csv ? { csv: a.csv } : a.shop ? { shop: a.shop, access_token: a.access_token ?? "" } : {}),
+    ...(a.orders_csv ? { orders_csv: a.orders_csv } : {}), ...(a.customers_csv ? { customers_csv: a.customers_csv } : {}),
+  } as any)));
 
   tool("import_catalog", {
     description: "Import the products already set up in the connected Printify shop or Printful store (both if provider is omitted). Happens automatically when a provider is connected; safe to re-run. Runs in the background: check get_store → fulfillment[].catalog_import for progress.",

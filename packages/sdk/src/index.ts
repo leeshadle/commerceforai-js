@@ -690,8 +690,15 @@ class StoreResource extends Resource {
    * `shop` (your-store.myshopify.com) + a custom app `access_token` (read_products, read_inventory).
    * Safe to re-run: products match by Shopify id or SKU and existing prices and stock are kept.
    */
-  importFromShopify(params: { csv: string } | { shop: string; access_token: string }) {
-    return this.client.request<CatalogImport & { object: "import"; source: "shopify"; products_seen: number; warnings: string[] }>("POST", "/v1/import/shopify", { body: params });
+  importFromShopify(params: ({ csv: string } | { shop: string; access_token: string } | {}) & {
+    /** Shopify's order export (Orders → Export): past orders come over as history, never charged, emailed or counted toward fees. */
+    orders_csv?: string;
+    /** Shopify's customer export (Customers → Export): carries over who is tax-exempt. */
+    customers_csv?: string;
+  }) {
+    return this.client.request<Partial<CatalogImport> & { object: "import"; source: "shopify"; products_seen?: number; warnings: string[];
+      orders_imported?: number; orders_already_imported?: number; line_items?: number; line_items_matched_to_products?: number; customers_seen?: number; tax_exempt_marked?: number }>(
+      "POST", "/v1/import/shopify", { body: params });
   }
   /**
    * Import the products already set up in a connected Printify shop or Printful store (both when omitted).

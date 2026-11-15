@@ -250,6 +250,8 @@ export interface Order {
     provider: "printful" | "printify"; id?: string; status: string; dashboard_url?: string | null; error?: string;
     shipments?: { carrier: string; tracking_number: string; tracking_url: string | null }[];
   }[];
+  /** Brought over from another platform (e.g. Shopify): a record of a past sale, never charged or fulfilled here. */
+  imported: boolean;
   /** Changes made after the order was paid. Totals stay what was charged; items are what ships. */
   edits: { id: string; at: string; changes: string[]; refund: Money; extra_cost_waived: Money; reason: string | null }[];
   note: string | null;
