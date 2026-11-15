@@ -3,7 +3,7 @@
   "name": "com.commerceforai/mcp",
   "title": "CommerceForAI",
   "description": "Run a store on your own Stripe account: products, orders, shipping, returns, print-on-demand.",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "websiteUrl": "https://commerceforai.com/docs/guides/agents",
   "remotes": [
     {
@@ -15,7 +15,7 @@
     {
       "registryType": "npm",
       "identifier": "@commerceforai/mcp",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "transport": {
         "type": "stdio"
       },

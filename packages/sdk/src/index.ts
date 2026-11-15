@@ -639,6 +639,15 @@ class StoreResource extends Resource {
     return this.client.request<ChatgptChannel>("PATCH", "/v1/channels/chatgpt", { body: params });
   }
   /** Everything between this store and real orders, each with the exact fix. Start here when setting up. */
+  /**
+   * After the site is deployed: look at it from the outside. Finds an API key in browser code, a success page or
+   * product page that doesn't load, and webhook endpoints that are unreachable or accept unsigned requests.
+   * Each item has a status (done / todo / warning / optional) and the exact fix.
+   */
+  checkStorefront(url: string) {
+    return this.client.request<{ object: "storefront_check"; url: string; ok: boolean; summary: string;
+      items: { key: string; status: "done" | "todo" | "warning" | "optional"; message: string; fix?: string }[] }>("POST", "/v1/storefront/check", { body: { url } });
+  }
   setupStatus() {
     return this.client.request<SetupStatus>("GET", "/v1/setup_status");
   }

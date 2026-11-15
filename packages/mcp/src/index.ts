@@ -22,11 +22,11 @@ export interface GuardrailConfig {
   allow: Set<string> | null;
 }
 
-export const VERSION = "0.1.8";
+export const VERSION = "0.1.9";
 
 /** Tool groups. Loading only what a task needs keeps the agent's context small ("core" is ~20 tools). */
 export const TOOLSETS: Record<string, string[]> = {
-  core: ["get_store", "setup_status", "simulate_order", "list_products", "get_product", "create_product", "create_products", "update_product", "update_variant",
+  core: ["get_store", "setup_status", "check_storefront", "simulate_order", "list_products", "get_product", "create_product", "create_products", "update_product", "update_variant",
     "list_inventory", "adjust_inventory", "create_checkout", "list_orders", "get_order", "fulfill_order", "refund_order", "add_order_note", "list_events",
     "configure_checkout_shipping", "create_go_live_link"],
   catalog: ["list_collections", "save_collection", "delete_collection", "upload_image", "copy_product_images", "import_from_shopify", "import_catalog"],
@@ -88,6 +88,8 @@ export function buildServer(commerce: Commerce, cfg: GuardrailConfig) {
     server.registerTool(
       name,
       {
+        // A short human-readable name, e.g. "Buy shipping label" (directories and clients show it).
+        title: name.charAt(0).toUpperCase() + name.slice(1).replace(/_/g, " "),
         description: def.description,
         inputSchema: def.input,
         annotations: { readOnlyHint: !def.write, destructiveHint: !!def.destructive, openWorldHint: false },
@@ -117,6 +119,11 @@ export function buildServer(commerce: Commerce, cfg: GuardrailConfig) {
     description: "Would ChatGPT shopping (OpenAI's product feed spec) accept this store's catalog? Returns per-item errors (would be rejected: e.g. missing JPEG/PNG image, no product URL) and warnings (weaker listings), so you can fix them before the owner applies at chatgpt.com/merchants.",
     input: {},
   }, async () => out(await commerce.store.checkFeed()));
+
+  tool("check_storefront", {
+    description: "After the site is deployed, check it from the outside: is an API key exposed in browser code, do the success page and product pages load, are webhook endpoints reachable and do they refuse unsigned requests. Pass the site's public https address. Each item has a status (done/todo/warning/optional) and the exact fix. Run it after every deploy that changes checkout, and before telling the owner the store is ready.",
+    input: { url: z.string().url().describe("The deployed site's address, e.g. https://yourstore.com") },
+  }, async ({ url }) => out(await commerce.store.checkStorefront(url)));
 
   tool("setup_status", {
     description: "Start here. Everything between this store and real orders, each with status (done/todo/warning/optional) and the exact fix; plus ready_for_real_orders and next_step.",
