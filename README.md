@@ -7,6 +7,7 @@ This repository holds the open-source client side of [CommerceForAI](https://com
 | Package | What it is |
 |---|---|
 | [`commerceforai`](packages/sdk) | TypeScript SDK, React cart hooks, and the `npx commerceforai init` CLI with a Next.js storefront template |
+| [`commerceforai` for Python](packages/python) | Python client with no dependencies |
 | [`@commerceforai/mcp`](packages/mcp) | MCP server that lets an AI agent run a store, with spending guardrails |
 | [`examples`](examples) | Short, runnable scripts |
 | [`llms.txt`](llms.txt) and [`llms/`](llms) | The guide AI coding agents read |

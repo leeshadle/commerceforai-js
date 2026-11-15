@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "commerceforai"
+version = "0.1.0"
+description = "Commerce for apps built by AI agents: products, inventory, Stripe checkout, orders, shipping, returns, subscriptions and gift cards."
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+keywords = ["commerce", "ecommerce", "stripe", "checkout", "orders", "inventory", "ai", "agents"]
+classifiers = ["Programming Language :: Python :: 3", "Operating System :: OS Independent", "Typing :: Typed"]
+dependencies = []
+
+[project.urls]
+Homepage = "https://commerceforai.com"
+Documentation = "https://commerceforai.com/docs"
+Repository = "https://github.com/leeshadle/commerceforai-js"
+"Agent guide" = "https://commerceforai.com/llms.txt"
+
+[tool.hatch.build.targets.wheel]
+packages = ["commerceforai"]

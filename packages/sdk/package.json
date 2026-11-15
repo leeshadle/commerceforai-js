@@ -1,6 +1,6 @@
 {
   "name": "commerceforai",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Commerce for apps built by AI. Products, inventory, checkout and orders on top of your Stripe account.",
   "type": "module",
   "main": "./dist/index.js",

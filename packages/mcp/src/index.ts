@@ -22,7 +22,7 @@ export interface GuardrailConfig {
   allow: Set<string> | null;
 }
 
-export const VERSION = "0.1.7";
+export const VERSION = "0.1.8";
 
 /** Tool groups. Loading only what a task needs keeps the agent's context small ("core" is ~20 tools). */
 export const TOOLSETS: Record<string, string[]> = {
