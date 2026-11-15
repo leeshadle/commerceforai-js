@@ -14,6 +14,7 @@ Build and test against the test store right away. Call `commerce.store.setupStat
 Use `npx commerceforai init --json` for machine-readable output.
 
 Next.js app (App Router)? `npx commerceforai init --template nextjs` also adds a working storefront at /shop: product grid, product pages with variant picker, cookie cart, Stripe checkout, thank-you page and order lookup (plain prefixed CSS, never overwrites files, reuses an existing key). Restyle or extend it from there.
+Astro? `npx commerceforai init --template astro` adds the same storefront as server-rendered pages under src/pages/shop (needs a server adapter: `npx astro add node`, or vercel/netlify/cloudflare). Other frameworks: follow the recipe below; the SDK works in any JavaScript server, and Python has `pip install commerceforai`.
 
 <!-- pricing:start -->
 

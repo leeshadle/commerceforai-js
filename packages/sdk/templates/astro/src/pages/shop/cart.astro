@@ -1,0 +1,75 @@
+---
+export const prerender = false;
+import Shop from "../../layouts/Shop.astro";
+import { commerce, money } from "../../lib/commerce";
+import { CHECKOUT, readCart, writeCart } from "../../lib/cart";
+
+// Forms on these pages post here: add, set a quantity, or check out.
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const action = String(form.get("action") ?? "");
+  const variant_id = String(form.get("variant_id") ?? "");
+  const cart = readCart(Astro.cookies);
+  if (action === "add" && variant_id) {
+    const quantity = Math.max(1, Math.min(99, Number(form.get("quantity") ?? 1) || 1));
+    const line = cart.find((l) => l.variant_id === variant_id);
+    if (line) line.quantity = Math.min(99, line.quantity + quantity);
+    else cart.push({ variant_id, quantity });
+    writeCart(Astro.cookies, cart);
+    return Astro.redirect("/shop/cart", 303);
+  }
+  if (action === "set") {
+    const quantity = Math.max(0, Math.min(99, Number(form.get("quantity") ?? 0) || 0));
+    writeCart(Astro.cookies, cart.map((l) => (l.variant_id === variant_id ? { ...l, quantity } : l)));
+    return Astro.redirect("/shop/cart", 303);
+  }
+  if (action === "checkout" && cart.length) {
+    // Stock is held while the customer pays on Stripe's page.
+    const origin = Astro.url.origin;
+    const { data, error } = await commerce.checkouts.create({ items: cart, success_url: `${origin}/shop/thanks`, cancel_url: `${origin}/shop/cart` });
+    if (error || !data?.url) return Astro.redirect(`/shop/cart?error=${encodeURIComponent(error?.message ?? "Checkout isn't available right now")}`, 303);
+    Astro.cookies.set(CHECKOUT, data.id, { httpOnly: true, sameSite: "lax", secure: import.meta.env.PROD, path: "/", maxAge: 60 * 60 * 24 });
+    return Astro.redirect(data.url, 303);
+  }
+  return Astro.redirect("/shop/cart", 303);
+}
+
+const cart = readCart(Astro.cookies);
+const { data: list } = cart.length ? await commerce.products.list({ active: true, limit: 100 }) : { data: null };
+const lines = cart.map((l) => {
+  for (const p of list?.data ?? []) {
+    const v = p.variants.find((x) => x.id === l.variant_id);
+    if (v) return { ...l, name: v.name === "Default" ? p.name : `${p.name} · ${v.name}`, price: v.price, currency: v.currency };
+  }
+  return null;
+}).filter((l) => l !== null);
+const total = lines.reduce((n, l) => n + l.price * l.quantity, 0);
+const error = Astro.url.searchParams.get("error");
+---
+<Shop title="Cart">
+  <h1 class="cfa-h1">Cart</h1>
+  {error && <p class="cfa-alert">{error}</p>}
+  {lines.length ? (
+    <>
+      <table class="cfa-table"><tbody>
+        {lines.map((l) => (
+          <tr>
+            <td>{l.name}</td>
+            <td>
+              <form method="post">
+                <input type="hidden" name="action" value="set" /><input type="hidden" name="variant_id" value={l.variant_id} />
+                <input class="cfa-qty" type="number" name="quantity" min="0" max="99" value={l.quantity} aria-label={`Quantity of ${l.name}`} />
+                <button class="cfa-button cfa-secondary" style="height:36px;padding:0 12px;margin-left:6px">Update</button>
+              </form>
+            </td>
+            <td style="text-align:right">{money(l.price * l.quantity, l.currency)}</td>
+          </tr>
+        ))}
+      </tbody></table>
+      <div class="cfa-row">
+        <strong>{money(total, lines[0]?.currency)}</strong>
+        <form method="post"><input type="hidden" name="action" value="checkout" /><button class="cfa-button">Checkout</button></form>
+      </div>
+    </>
+  ) : <p class="cfa-empty">Your cart is empty. <a href="/shop">Keep shopping</a></p>}
+</Shop>

@@ -1,0 +1,22 @@
+---
+export const prerender = false;
+import Shop from "../../layouts/Shop.astro";
+import { commerce, money } from "../../lib/commerce";
+
+const { data, error } = await commerce.products.list({ active: true, limit: 100 });
+const products = (data?.data ?? []).filter((p) => p.variants.some((v) => v.active));
+---
+<Shop>
+  {error && <p class="cfa-alert">{error.message}</p>}
+  {products.length ? (
+    <div class="cfa-grid">
+      {products.map((p) => (
+        <a href={`/shop/${p.id}`} class="cfa-card">
+          {p.images[0] ? <img src={p.images[0]} alt={p.name} class="cfa-image" loading="lazy" /> : <div class="cfa-placeholder" />}
+          <p class="cfa-title">{p.name}</p>
+          <p class="cfa-price">{money(Math.min(...p.variants.map((v) => v.price)), p.variants[0]?.currency)}</p>
+        </a>
+      ))}
+    </div>
+  ) : <p class="cfa-empty">No products yet.</p>}
+</Shop>

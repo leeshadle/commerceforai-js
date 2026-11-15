@@ -1,0 +1,31 @@
+/* Plain, prefixed CSS (cfa-*) so it works with or without Tailwind or CSS modules. Restyle freely. */
+/* The shop paints its own light page so it's readable whatever the app's global (e.g. dark-mode) styles are. */
+.cfa-page { min-height: 100vh; background: #fff; color: #111; color-scheme: light; }
+.cfa-shell { max-width: 1040px; margin: 0 auto; padding: 24px 16px 64px; font-family: system-ui, -apple-system, sans-serif; color: #111; }
+.cfa-nav { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 20px; margin-bottom: 28px; border-bottom: 1px solid #e5e5e5; }
+.cfa-brand { font-weight: 600; font-size: 18px; color: inherit; text-decoration: none; }
+.cfa-links { display: flex; gap: 18px; font-size: 14px; }
+.cfa-links a { color: #444; text-decoration: none; }
+.cfa-links a:hover { color: #111; }
+.cfa-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 24px; }
+.cfa-card { display: block; color: inherit; text-decoration: none; }
+.cfa-image { aspect-ratio: 1; width: 100%; object-fit: cover; border-radius: 10px; background: #f3f3f3; }
+.cfa-placeholder { aspect-ratio: 1; width: 100%; border-radius: 10px; background: #f3f3f3; }
+.cfa-title { margin: 10px 0 2px; font-size: 15px; font-weight: 500; }
+.cfa-price { color: #555; font-size: 14px; }
+.cfa-detail { display: grid; grid-template-columns: 1fr; gap: 32px; }
+@media (min-width: 760px) { .cfa-detail { grid-template-columns: 1fr 1fr; } }
+.cfa-h1 { font-size: 28px; font-weight: 600; margin: 0 0 8px; }
+.cfa-muted { color: #666; font-size: 14px; line-height: 1.5; white-space: pre-line; }
+.cfa-field { display: block; margin: 16px 0; font-size: 14px; }
+.cfa-field select, .cfa-field input { display: block; margin-top: 6px; width: 100%; max-width: 320px; height: 40px; padding: 0 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 15px; background: #fff; }
+.cfa-button { display: inline-flex; align-items: center; justify-content: center; height: 44px; padding: 0 22px; border: 0; border-radius: 8px; background: #111; color: #fff; font-size: 15px; font-weight: 500; cursor: pointer; text-decoration: none; }
+.cfa-button:disabled { opacity: 0.5; cursor: not-allowed; }
+.cfa-secondary { background: #fff; color: #111; border: 1px solid #ccc; }
+.cfa-table { width: 100%; border-collapse: collapse; font-size: 15px; }
+.cfa-table td { padding: 14px 0; border-bottom: 1px solid #eee; vertical-align: middle; }
+.cfa-qty { width: 64px; height: 36px; padding: 0 8px; border: 1px solid #ccc; border-radius: 8px; }
+.cfa-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 24px; flex-wrap: wrap; }
+.cfa-alert { padding: 12px 14px; border-radius: 8px; background: #fff4f4; color: #9b1c1c; font-size: 14px; margin-bottom: 16px; }
+.cfa-notice { padding: 12px 14px; border-radius: 8px; background: #f3f7ff; color: #1e3a8a; font-size: 14px; margin-bottom: 16px; }
+.cfa-empty { padding: 48px 0; text-align: center; color: #666; }

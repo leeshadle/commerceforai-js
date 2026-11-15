@@ -1,0 +1,35 @@
+---
+export const prerender = false;
+import Shop from "../../layouts/Shop.astro";
+import { commerce, money } from "../../lib/commerce";
+
+const { data: p } = await commerce.products.get(Astro.params.id!);
+if (!p || !p.active) return new Response("Not found", { status: 404 });
+const variants = p.variants.filter((v) => v.active);
+const buyable = variants.filter((v) => v.inventory.available === null || v.inventory.available > 0);
+---
+<Shop title={p.name}>
+  <div class="cfa-detail">
+    {p.images[0] ? <img src={p.images[0]} alt={p.name} class="cfa-image" /> : <div class="cfa-placeholder" />}
+    <div>
+      <h1 class="cfa-h1">{p.name}</h1>
+      <p class="cfa-price">{money(variants[0]?.price ?? 0, variants[0]?.currency)}</p>
+      {p.description && <p class="cfa-muted">{p.description}</p>}
+      <form method="post" action="/shop/cart">
+        <input type="hidden" name="action" value="add" />
+        {variants.length > 1 ? (
+          <label class="cfa-field">Option
+            <select name="variant_id">
+              {variants.map((v) => {
+                const soldOut = v.inventory.available !== null && v.inventory.available <= 0;
+                return <option value={v.id} disabled={soldOut} selected={v.id === buyable[0]?.id}>{v.name} · {money(v.price, v.currency)}{soldOut ? " (sold out)" : ""}</option>;
+              })}
+            </select>
+          </label>
+        ) : <input type="hidden" name="variant_id" value={variants[0]?.id ?? ""} />}
+        <label class="cfa-field">Quantity <input type="number" name="quantity" min="1" max="99" value="1" /></label>
+        <button class="cfa-button" disabled={!buyable.length}>{buyable.length ? "Add to cart" : "Sold out"}</button>
+      </form>
+    </div>
+  </div>
+</Shop>

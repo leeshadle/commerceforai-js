@@ -1,0 +1,28 @@
+---
+import "../styles/shop.css";
+import { store } from "../lib/commerce";
+import { readCart } from "../lib/cart";
+
+const { title } = Astro.props as { title?: string };
+const info = await store();
+const count = readCart(Astro.cookies).reduce((n, l) => n + l.quantity, 0);
+---
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title ? `${title} · ${info.name}` : info.name}</title>
+  </head>
+  <body class="cfa-page">
+    <div class="cfa-shell">
+      <nav class="cfa-nav">
+        <a href="/shop" class="cfa-brand">{info.name}</a>
+        <div class="cfa-links">
+          {info.accountUrl && <a href={info.accountUrl}>My orders</a>}
+          <a href="/shop/cart">Cart{count ? ` (${count})` : ""}</a>
+        </div>
+      </nav>
+      <slot />
+    </div>
+  </body>
+</html>

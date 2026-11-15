@@ -18,6 +18,8 @@ Options:
   --template nextjs    Also add a working storefront to this Next.js app (App Router):
                        /shop product grid, product pages, cart, Stripe checkout,
                        thank-you page and order lookup. Never overwrites files.
+  --template astro     The same storefront for an Astro project (server-rendered
+                       pages under src/pages/shop; needs a server adapter).
                        Reuses COMMERCEFORAI_API_KEY if it's already set.
   --name <name>        Store name (default: this folder's package.json name)
   --env-file <path>    Where to save COMMERCEFORAI_API_KEY (default: .env.local)
@@ -57,15 +59,15 @@ async function init(o: Record<string, string | boolean>) {
   const write = !o["no-write"];
 
   const template = typeof o.template === "string" ? o.template : null;
-  if (template && template !== "nextjs") {
-    const msg = `Unknown template "${template}". Available: nextjs`;
+  if (template && template !== "nextjs" && template !== "astro") {
+    const msg = `Unknown template "${template}". Available: nextjs, astro`;
     if (o.json) console.log(JSON.stringify({ ok: false, error: { type: "invalid_request", message: msg } })); else console.error(msg);
     process.exit(1);
   }
   const hasKey = existsSync(envFile) && /^COMMERCEFORAI_API_KEY=/m.test(readFileSync(envFile, "utf8"));
   // With a template and an existing key: just add the storefront.
   if (template && hasKey && !o.force) {
-    const sc = scaffoldNext();
+    const sc = scaffold(template as Template);
     if (o.json) console.log(JSON.stringify({ ok: sc.ok, store_created: false, env_file: envFile, template: sc }));
     else printScaffold(sc, "Using the COMMERCEFORAI_API_KEY already in " + envFile.split("/").pop());
     process.exit(sc.ok ? 0 : 1);
@@ -104,7 +106,7 @@ async function init(o: Record<string, string | boolean>) {
     try { return /(^|\n)\s*\.env(\*|\.local|\.\*)?\s*(\n|$)/.test(readFileSync(resolve(".gitignore"), "utf8")); } catch { return false; }
   })();
 
-  const sc = template ? scaffoldNext() : null;
+  const sc = template ? scaffold(template as Template) : null;
   if (o.json) {
     console.log(JSON.stringify({
       ok: true, store_id: json.store_id, mode: json.mode, api_key: json.api_key, claim_url: json.claim_url,
@@ -143,17 +145,20 @@ copies the store to live mode, and takes them to Connect Stripe.
 
 // ---------- --template nextjs ----------
 
-type Scaffold = { ok: boolean; template: "nextjs"; base: string; created: string[]; skipped: string[]; install_command: string | null; open: string; error?: string };
+type Template = "nextjs" | "astro";
+type Scaffold = { ok: boolean; template: Template; base: string; created: string[]; skipped: string[]; install_command: string | null; open: string; next_steps?: string[]; error?: string };
 
-function scaffoldNext(): Scaffold {
-  const fail = (error: string): Scaffold => ({ ok: false, template: "nextjs", base: "", created: [], skipped: [], install_command: null, open: "", error });
+function scaffold(template: Template): Scaffold {
+  const fail = (error: string): Scaffold => ({ ok: false, template, base: "", created: [], skipped: [], install_command: null, open: "", error });
+  const app = template === "astro" ? "an Astro project (e.g. after `npm create astro@latest`)" : "a Next.js app (e.g. after `npx create-next-app@latest`)";
   let pkg: any;
-  try { pkg = JSON.parse(readFileSync(resolve("package.json"), "utf8")); } catch { return fail("No package.json here. Run this in a Next.js app (e.g. after `npx create-next-app@latest`)."); }
+  try { pkg = JSON.parse(readFileSync(resolve("package.json"), "utf8")); } catch { return fail(`No package.json here. Run this in ${app}.`); }
   const deps = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) };
-  if (!deps.next) return fail("This isn't a Next.js app (no `next` dependency). Create one with `npx create-next-app@latest`, then re-run.");
-  // App Router lives in src/app or app.
-  const base = existsSync(resolve("src/app")) ? "src" : existsSync(resolve("app")) ? "" : existsSync(resolve("src")) ? "src" : "";
-  const from = fileURLToPath(new URL("../templates/nextjs/", import.meta.url));
+  if (template === "nextjs" && !deps.next) return fail("This isn't a Next.js app (no `next` dependency). Create one with `npx create-next-app@latest`, then re-run.");
+  if (template === "astro" && !deps.astro) return fail("This isn't an Astro project (no `astro` dependency). Create one with `npm create astro@latest`, then re-run.");
+  // Next.js: App Router lives in src/app or app. Astro: the template brings its own src/.
+  const base = template === "astro" ? "" : existsSync(resolve("src/app")) ? "src" : existsSync(resolve("app")) ? "" : existsSync(resolve("src")) ? "src" : "";
+  const from = fileURLToPath(new URL(`../templates/${template}/`, import.meta.url));
   const created: string[] = [], skipped: string[] = [];
   const walk = (dir: string): string[] => readdirSync(dir).flatMap((f) => statSync(join(dir, f)).isDirectory() ? walk(join(dir, f)) : [join(dir, f)]);
   for (const file of walk(from)) {
@@ -166,6 +171,12 @@ function scaffoldNext(): Scaffold {
     created.push(shown);
   }
   const pm = existsSync(resolve("pnpm-lock.yaml")) ? "pnpm add" : existsSync(resolve("yarn.lock")) ? "yarn add" : existsSync(resolve("bun.lockb")) || existsSync(resolve("bun.lock")) ? "bun add" : "npm install";
+  if (template === "astro") {
+    // The shop renders on the server (it reads live stock and creates checkouts), so Astro needs an adapter.
+    const adapter = Object.keys(deps).find((d) => /^@astrojs\/(node|vercel|netlify|cloudflare)$/.test(d));
+    return { ok: true, template, base: ".", created, skipped, install_command: deps.commerceforai ? null : `${pm} commerceforai`, open: "http://localhost:4321/shop",
+      next_steps: adapter ? [] : ["Add a server adapter so the shop can render on demand: `npx astro add node` (or vercel, netlify, cloudflare for your host)."] };
+  }
   return { ok: true, template: "nextjs", base: base || ".", created, skipped, install_command: deps.commerceforai ? null : `${pm} commerceforai`, open: "http://localhost:3000/shop" };
 }
 
@@ -177,7 +188,7 @@ function printScaffold(sc: Scaffold, first: string) {
 
 Next:
 ${sc.install_command ? `  ${sc.install_command}
-` : ""}  Add a product (SDK, MCP, or connect Printify/Printful), then run your dev server and open ${sc.open}
+` : ""}${(sc.next_steps ?? []).map((x) => `  ${x}\n`).join("")}  Add a product (SDK, MCP, or connect Printify/Printful), then run your dev server and open ${sc.open}
   Pay with test card 4242 4242 4242 4242. Agents: verify without a browser with commerce.store.simulateOrder().
 `);
 }
