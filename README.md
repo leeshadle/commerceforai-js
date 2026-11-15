@@ -42,6 +42,17 @@ await commerce.store.simulateOrder({ items: [{ variant_id: product!.variants[0]!
 
 Every method returns `{ data, error }` and never throws for API errors. All money is an integer in cents.
 
+Python:
+
+```python
+# pip install commerceforai
+from commerceforai import Commerce, create_test_store
+
+store = create_test_store("My shop")            # a free test store, no sign-up
+commerce = Commerce(store["api_key"])
+product = commerce.products.create(name="Trail Tee", price=3600, inventory=25)
+```
+
 ## Why use it instead of writing it yourself
 
 An agent asked to "add a store" will often write an orders table, decrement stock on the success page and hand-roll Stripe webhooks. That breaks on the first double-click, refund or abandoned cart. CommerceForAI handles the parts that are stateful and easy to get wrong:

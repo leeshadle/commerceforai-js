@@ -21,6 +21,10 @@ Next.js app (App Router)? `npx commerceforai init --template nextjs` also adds a
 
 npm install commerceforai
 
+Python: `pip install commerceforai` (no dependencies). Same resources in snake_case; responses are dicts, errors raise CommerceError:
+`from commerceforai import Commerce, create_test_store` · `store = create_test_store("My shop")` (no sign-up) · `commerce = Commerce(store["api_key"])` · `commerce.products.create(name="Tee", price=3600, inventory=25)` · `commerce.checkouts.create(items=[{"variant_id": v, "quantity": 1}], success_url=...)` · `commerce.store.simulate_order(items=[...])`. Anything else: `commerce.request("GET", "/v1/...")`.
+Other languages: plain HTTPS with `Authorization: Bearer <key>`; every endpoint and response shape is in https://api.commerceforai.com/openapi.json. No key yet: `POST https://api.commerceforai.com/sandbox/stores` returns a test store and key.
+
 Env: COMMERCEFORAI_API_KEY=cfa_test_...  (COMMERCEFORAI_BASE_URL only if self-hosting; default https://api.commerceforai.com)
 
 ## Rules
