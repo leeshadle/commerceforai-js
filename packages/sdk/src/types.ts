@@ -396,6 +396,10 @@ export type EventType =
   | "fulfillment.failed"
   | "fulfillment.canceled"
   | "fulfillment.on_hold"
+  | "approval.requested"
+  | "approval.approved"
+  | "approval.failed"
+  | "approval.rejected"
   | "return.requested"
   | "return.approved"
   | "return.rejected"
@@ -431,10 +435,42 @@ export interface List<T> {
 export interface ErrorResponse {
   type:
     | "invalid_request" | "authentication_error" | "not_found" | "conflict" | "out_of_stock"
-    | "stripe_error" | "idempotency_error" | "internal_error" | "network_error";
+    | "stripe_error" | "idempotency_error" | "internal_error" | "network_error" | "permission_error" | "rate_limited";
   message: string;
   param?: string;
+  /** "approval_required": over this API key's cap, so the store owner was asked. Don't retry; poll approvals.get(approval.id). */
+  code?: string;
+  approval?: { id: string; status: ApprovalStatus; description: string; expires_at: string };
   [k: string]: unknown;
+}
+
+export type ApprovalStatus = "pending" | "approved" | "failed" | "rejected" | "expired";
+
+/** A request over an API key's cap, saved for the store owner to approve. Once approved, CommerceForAI makes it and stores the result. */
+export interface Approval {
+  object: "approval";
+  id: string;
+  /** approved: the request was made and succeeded; failed: it was made but returned an error (see result). */
+  status: ApprovalStatus;
+  /** e.g. "Refund $25.00 on order ord_..." */
+  description: string;
+  limit: "max_refund" | "max_label_cost" | "max_gift_card";
+  /** In cents. */
+  amount: number;
+  /** The key's cap, in cents. */
+  key_limit: number;
+  currency: string;
+  request: { method: string; path: string; body: unknown };
+  /** What the agent said when it asked (X-Approval-Note header). */
+  note: string | null;
+  created_at: string;
+  expires_at: string;
+  decided_at: string | null;
+  decided_by: string | null;
+  decision_note: string | null;
+  result: { status: number; body: unknown } | null;
+  /** Where the owner approves it. */
+  review_url: string;
 }
 
 export type Result<T> = { data: T; error: null } | { data: null; error: ErrorResponse };

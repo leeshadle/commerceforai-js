@@ -27,6 +27,8 @@ In Claude.ai, ChatGPT or any MCP client that supports remote servers, add `https
 | `COMMERCEFORAI_READ_ONLY=true` | Only read tools are offered |
 | `COMMERCEFORAI_MAX_REFUND` | Largest refund in cents (default 5000) |
 | `COMMERCEFORAI_MAX_LABEL_COST` | Largest shipping label in cents (default 5000) |
+
+Over either cap, the store owner is asked to approve instead (email + dashboard); the agent checks the outcome with `get_approval`.
 | `COMMERCEFORAI_TOOLS` | Comma-separated allowlist of tools |
 
 [Docs](https://commerceforai.com/docs/guides/agents) · MIT licensed.

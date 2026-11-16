@@ -1,5 +1,5 @@
 import type {
-  Collection, CollectionParams, Customer, CustomerDetail, Discount, DiscountParams, DraftOrder, DraftOrderParams, GiftCard, OrderEdit, OrderEditParams, SalesReport, Subscription,
+  Collection, CollectionParams, Customer, CustomerDetail, Discount, DiscountParams, DraftOrder, DraftOrderParams, GiftCard, Approval, ApprovalStatus, OrderEdit, OrderEditParams, SalesReport, Subscription,
   Checkout, CheckoutCreateParams, Dimensions, Email, ErrorResponse, Event, EventType, Label, List, Order, OrderStatus, Parcel,
   Product, ProductCreateParams, ProductUpdateParams, Result, Return, ShipFromAddress, ShippingRate, Store, StorefrontConfig,
   Variant, VariantInput, VariantUpdateParams, WebhookEndpoint,
@@ -42,6 +42,8 @@ export class Commerce {
   readonly customers: Customers;
   readonly draftOrders: DraftOrders;
   readonly giftCards: GiftCards;
+  /** Requests over an API key's cap that went to the store owner. Agents can read them; only the owner approves, in the dashboard. */
+  readonly approvals: Approvals;
   readonly subscriptions: Subscriptions;
   readonly discounts: Discounts;
   readonly reports: Reports;
@@ -75,6 +77,7 @@ export class Commerce {
     this.customers = new Customers(this);
     this.draftOrders = new DraftOrders(this);
     this.giftCards = new GiftCards(this);
+    this.approvals = new Approvals(this);
     this.subscriptions = new Subscriptions(this);
     this.discounts = new Discounts(this);
     this.reports = new Reports(this);
@@ -309,6 +312,19 @@ class DraftOrders extends Resource {
  * checkout). Whatever isn't spent stays on the card. To sell them, mark a product with metadata { gift_card: "true" }:
  * paying issues one card per unit and emails it (to the line's properties.recipient_email, else the buyer).
  */
+class Approvals extends Resource {
+  list(params: { status?: ApprovalStatus } = {}) { return this.client.request<List<Approval>>("GET", "/v1/approvals", { query: params }); }
+  /**
+   * Ask the store owner to approve a change over the agent's own limit. Allowed for POST /v1/orders/{id}/refund,
+   * /v1/returns/{id}/receive and /v1/orders/{id}/labels. If approved, CommerceForAI makes the request itself.
+   */
+  request(params: { amount: number; key_limit: number; request: { method?: "POST"; path: string; body?: unknown }; note?: string }) {
+    return this.client.request<Approval>("POST", "/v1/approvals", { body: params });
+  }
+  /** Poll this after an approval_required error: result holds the response once the owner approves. */
+  get(id: string) { return this.client.request<Approval>("GET", `/v1/approvals/${encodeURIComponent(id)}`); }
+}
+
 class GiftCards extends Resource {
   /** value in cents. With send: true, the code is emailed to recipient_email (with your optional message). */
   create(params: { value: number; recipient_email?: string | null; note?: string | null; expires_at?: string | null; send?: boolean; message?: string | null }) {

@@ -24,14 +24,14 @@ export interface GuardrailConfig {
   allow: Set<string> | null;
 }
 
-export const VERSION = "0.1.10";
+export const VERSION = "0.1.11";
 
 const NO_KEY = "No API key: set COMMERCEFORAI_API_KEY in this MCP server's environment. For a free test store with a key and no sign-up, run `npx commerceforai init` (or POST https://api.commerceforai.com/sandbox/stores). Or connect to the hosted server instead: https://api.commerceforai.com/mcp (sign in with the store owner's account).";
 
 /** Tool groups. Loading only what a task needs keeps the agent's context small ("core" is ~20 tools). */
 export const TOOLSETS: Record<string, string[]> = {
   core: ["get_store", "setup_status", "check_storefront", "simulate_order", "list_products", "get_product", "create_product", "create_products", "update_product", "update_variant",
-    "list_inventory", "adjust_inventory", "create_checkout", "list_orders", "get_order", "fulfill_order", "refund_order", "add_order_note", "list_events",
+    "list_inventory", "adjust_inventory", "create_checkout", "list_orders", "get_order", "fulfill_order", "refund_order", "get_approval", "add_order_note", "list_events",
     "configure_checkout_shipping", "create_go_live_link"],
   catalog: ["list_collections", "save_collection", "delete_collection", "upload_image", "copy_product_images", "import_from_shopify", "import_catalog"],
   print_on_demand: ["printify_catalog", "create_in_printify", "publish_in_printify", "submit_fulfillment", "import_catalog"],
@@ -129,6 +129,11 @@ export function buildServer(commerce: Commerce, cfg: GuardrailConfig) {
     description: "After the site is deployed, check it from the outside: is an API key exposed in browser code, do the success page and product pages load, are webhook endpoints reachable and do they refuse unsigned requests. Pass the site's public https address. Each item has a status (done/todo/warning/optional) and the exact fix. Run it after every deploy that changes checkout, and before telling the owner the store is ready.",
     input: { url: z.string().url().describe("The deployed site's address, e.g. https://yourstore.com") },
   }, async ({ url }) => out(await commerce.store.checkStorefront(url)));
+
+  tool("get_approval", {
+    description: "When a change is over this API key's cap (refund, shipping label, gift card), the error has code approval_required and an approval id: the store owner was asked. Don't retry the change. Pass the id here to see its status; once approved, CommerceForAI has made the change and `result` holds the response. Without an id, lists pending approvals.",
+    input: { id: z.string().optional().describe("apr_... from the approval_required error") },
+  }, async ({ id }) => (id ? out(await commerce.approvals.get(id)) : out(await commerce.approvals.list({ status: "pending" }))));
 
   tool("setup_status", {
     description: "Start here. Everything between this store and real orders, each with status (done/todo/warning/optional) and the exact fix; plus ready_for_real_orders and next_step.",
@@ -425,7 +430,7 @@ export function buildServer(commerce: Commerce, cfg: GuardrailConfig) {
   });
 
   tool("refund_order", {
-    description: `Refund an order through Stripe. Omit amount for the full remaining amount. This tool is limited to ${money(cfg.maxRefund)} per refund; larger refunds must be done by a human. Set restock=true if the items came back sellable.`,
+    description: `Refund an order through Stripe. Omit amount for the full remaining amount. This tool is limited to ${money(cfg.maxRefund)} per refund; a larger one is sent to the store owner to approve (then check get_approval). Set restock=true if the items came back sellable.`,
     write: true,
     destructive: true,
     input: {
@@ -439,17 +444,23 @@ export function buildServer(commerce: Commerce, cfg: GuardrailConfig) {
     if (o.error) return out(o);
     const amount = a.amount ?? o.data.total - o.data.refunded;
     if (amount > cfg.maxRefund) {
-      return text(
-        `Refused by guardrail: refunding ${money(amount, o.data.currency)} on order #${o.data.number} exceeds this agent's limit of ` +
-          `${money(cfg.maxRefund, o.data.currency)} (COMMERCEFORAI_MAX_REFUND). Ask a human to approve it, or refund a smaller amount.`,
-        true,
-      );
+      const why = `Refunding ${money(amount, o.data.currency)} on order #${o.data.number} is over this agent's limit of ${money(cfg.maxRefund, o.data.currency)} (COMMERCEFORAI_MAX_REFUND).`;
+      return askOwner(why, amount, cfg.maxRefund, `/v1/orders/${o.data.id}/refund`, { amount, restock: a.restock, reason: a.reason });
     }
     return out(await commerce.orders.refund(o.data.id, { amount, restock: a.restock, reason: a.reason }));
   });
 
   // ---------- shipping & returns ----------
   const maxLabel = cfg.maxLabelCost ?? 5000;
+
+  /** Over this agent's own guardrail: ask the store owner instead of just refusing. */
+  async function askOwner(why: string, amount: number, limit: number, path: string, body: unknown) {
+    if (cfg.readOnly) return text(`Refused by guardrail: ${why} Ask a human.`, true);
+    const apr = await commerce.approvals.request({ amount, key_limit: limit, request: { path, body }, note: why });
+    if (apr.error) return text(`Refused by guardrail: ${why} Couldn't ask the store owner (${apr.error.message}); ask a human.`, true);
+    return text(`${why} The store owner has been asked to approve it (approval ${apr.data.id}, ${apr.data.review_url}). ` +
+      `Don't retry: if they approve, CommerceForAI makes this exact change. Check get_approval with id ${apr.data.id} for the outcome.`, true);
+  }
 
   // ---------- collections ----------
   tool("list_collections", { description: "Collections (product groups like 'Mugs' or 'Yosemite') in display order, with their product ids. Filter products by one with list_products collection.", input: {} },
@@ -557,8 +568,8 @@ export function buildServer(commerce: Commerce, cfg: GuardrailConfig) {
     // The server checks the stored rate's real price against max_cost before buying.
     const res = await commerce.orders.buyLabel(a.order, a.rate_id, { max_cost: maxLabel });
     if (res.error?.param === "max_cost")
-      return text(`Refused by guardrail: that label costs ${money(Number(res.error.amount))}, over this agent's ${money(maxLabel)} limit ` +
-        `(COMMERCEFORAI_MAX_LABEL_COST). Choose a cheaper rate or ask a human.`, true);
+      return askOwner(`That label costs ${money(Number(res.error.amount))}, over this agent's ${money(maxLabel)} limit (COMMERCEFORAI_MAX_LABEL_COST). (Or choose a cheaper rate.)`,
+        Number(res.error.amount), maxLabel, `/v1/orders/${encodeURIComponent(a.order)}/labels`, { rate_id: a.rate_id });
     return out(res);
   });
 
@@ -590,8 +601,8 @@ export function buildServer(commerce: Commerce, cfg: GuardrailConfig) {
     if (r.error) return out(r);
     const value = r.data.items.reduce((s, i) => s + i.unit_price * i.quantity, 0);
     if ((a.refund ?? true) && value > cfg.maxRefund)
-      return text(`Refused by guardrail: this return would refund ${money(value, r.data.currency ?? "usd")}, over this agent's ${money(cfg.maxRefund)} limit. ` +
-        `Ask a human, or call with refund=false to restock only.`, true);
+      return askOwner(`This return would refund ${money(value, r.data.currency ?? "usd")}, over this agent's ${money(cfg.maxRefund)} limit. (Or call with refund=false to restock only.)`,
+        value, cfg.maxRefund, `/v1/returns/${r.data.id}/receive`, { restock: a.restock, refund: a.refund });
     return out(await commerce.returns.receive(a.return_id, { restock: a.restock, refund: a.refund }));
   });
 

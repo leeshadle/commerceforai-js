@@ -264,6 +264,17 @@ class _GiftCards(_Crud):
         return self._c.request("POST", f"{self.path}/{_q(id)}/send", params)
 
 
+class _Approvals(_Resource):
+    """Requests over an API key's cap that went to the store owner. Read them here; only the owner approves, in the dashboard."""
+
+    def list(self, **query: Any) -> dict:
+        return self._c.request("GET", "/v1/approvals", query=query)
+
+    def get(self, id: str) -> dict:
+        """Poll after an approval_required error: once approved, `result` holds the response of the change CommerceForAI made."""
+        return self._c.request("GET", f"/v1/approvals/{_q(id)}")
+
+
 class _Subscriptions(_Resource):
     def list(self, **query: Any) -> dict:
         return self._c.request("GET", "/v1/subscriptions", query=query)
@@ -362,6 +373,7 @@ class Commerce:
         self.checkouts, self.orders, self.returns = _Checkouts(self), _Orders(self), _Returns(self)
         self.collections, self.discounts, self.customers = _Collections(self), _Discounts(self), _Customers(self)
         self.draft_orders, self.gift_cards, self.subscriptions = _DraftOrders(self), _GiftCards(self), _Subscriptions(self)
+        self.approvals = _Approvals(self)
         self.store, self.events, self.webhooks, self.reports = _Store(self), _Events(self), _Webhooks(self), _Reports(self)
 
     def request(self, method: str, path: str, body: Any = None, query: Optional[Mapping[str, Any]] = None, idempotency_key: Optional[str] = None) -> Any:
