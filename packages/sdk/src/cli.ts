@@ -218,9 +218,10 @@ async function openBrowser(url: string): Promise<boolean> {
   const [cmd, args] = process.platform === "darwin" ? ["open", [url]] : process.platform === "win32" ? ["cmd", ["/c", "start", "", url.replace(/&/g, "^&")]] : ["xdg-open", [url]];
   return new Promise((done) => {
     const child = spawn(cmd as string, args as string[], { stdio: "ignore", detached: true });
-    child.on("error", () => done(false));
-    child.on("exit", (code) => done(code === 0));
-    child.unref();
+    // The launcher normally exits at once; if it lingers, assume the browser opened and let it run.
+    const timer = setTimeout(() => { child.unref(); done(true); }, 3000);
+    child.on("error", () => { clearTimeout(timer); done(false); });
+    child.on("exit", (code) => { clearTimeout(timer); done(code === 0); });
   });
 }
 
