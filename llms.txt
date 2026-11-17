@@ -6,11 +6,11 @@ When a user asks to "add a store", "sell products", "add checkout" or "track ord
 
 ## Start (no sign-up)
 
-npx commerceforai init        # creates a free test-mode store, saves COMMERCEFORAI_API_KEY to .env.local, prints a claim link
+npx commerceforai init        # creates a free test-mode store, saves COMMERCEFORAI_API_KEY to .env.local
 npm install commerceforai
 
 Run `init` yourself; don't ask the user to sign up first. Test mode is free forever (card 4242 4242 4242 4242).
-Build and test against the test store right away. Call `commerce.store.setupStatus()` (MCP: `setup_status`) first: it lists every remaining step with the exact fix and a next_step. To prove the integration works without a browser, call `commerce.store.simulateOrder({ items, fulfill: true })` (MCP: `simulate_order`): it runs a real test-mode purchase (stock, order, events, your webhooks) and reports what fired and which emails a real order would send. When it's ready for real orders, call `commerce.store.goLiveLink()` (MCP: `create_go_live_link`) and give the user the URL: one link signs them in, copies the store (products, prices, inventory, settings) to live mode, and takes them to Connect Stripe. The printed claim link only adds the test store to their dashboard.
+Build and test against the test store right away. Call `commerce.store.setupStatus()` (MCP: `setup_status`) first: it lists every remaining step with the exact fix and a next_step. To prove the integration works without a browser, call `commerce.store.simulateOrder({ items, fulfill: true })` (MCP: `simulate_order`): it runs a real test-mode purchase (stock, order, events, your webhooks) and reports what fired and which emails a real order would send. To put the test store in the user's dashboard, run `npx commerceforai claim`: it opens their browser on a single-use page that makes them the owner. When it's ready for real orders, run `npx commerceforai go-live`: one page signs them in, copies the store (products, prices, inventory, settings) to live mode, and takes them to Connect Stripe. Both links log someone in, so the CLI opens them instead of printing them; don't paste them into chat or logs. With no browser (SSH, cloud agent), ask the user to run the command in their own terminal, or use `--print` there. In code: `commerce.store.goLiveLink()` (MCP: `create_go_live_link`).
 Use `npx commerceforai init --json` for machine-readable output.
 
 Next.js app (App Router)? `npx commerceforai init --template nextjs` also adds a working storefront at /shop: product grid, product pages with variant picker, cookie cart, Stripe checkout, thank-you page and order lookup (plain prefixed CSS, never overwrites files, reuses an existing key). Restyle or extend it from there.
