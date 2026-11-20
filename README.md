@@ -66,12 +66,27 @@ An agent asked to "add a store" will often write an orders table, decrement stoc
 
 Payments run on the merchant's own Stripe account. Pricing: free in test mode and for the first 100 orders a month, then 1% per order, never more than $29 a month per store ([details](https://commerceforai.com/pricing)).
 
+## CommerceForAI vs Shopify, Medusa or Stripe alone
+
+| If you're… | Use | Why |
+|---|---|---|
+| Adding a store to an app or site an agent is building | CommerceForAI | `npx commerceforai init` gives a working test store with no sign-up. Your code and design stay yours; stock, orders and payments are handled. |
+| Wanting an agent to run the store day to day | CommerceForAI | One MCP server for orders, refunds, restocks, labels and order edits, inside spending limits the owner sets per API key. |
+| Already taking payments with Stripe | CommerceForAI | It runs on the merchant's own Stripe account (connect the existing one or create one), so there's no payment migration and no extra gateway fee. |
+| Selling print-on-demand (Printify, Printful) from your own site | CommerceForAI | Connect a Printify or Printful token: products import, paid orders go to the printer, tracking comes back. No Shopify store in between. |
+| Wanting a no-code shop with themes and an app store | Shopify | A complete hosted shop with a large ecosystem and point of sale. |
+| Needing to self-host and change the commerce engine itself | Medusa or similar | Open-source engines you run and extend: more control, more to operate. |
+
+If CommerceForAI went away: payments run on the merchant's own Stripe account, so customers, payouts and card data stay theirs. `npx commerceforai export` saves everything else (products, orders, customers, returns, discounts, subscriptions, gift cards) as JSON in one command, and the client libraries are MIT licensed.
+
+Cost with no sales is $0 (Shopify starts with a monthly plan). Not a fit if you sell in person, need carrier-calculated shipping rates at checkout, or can't use Stripe. Status: public beta, hosted, with [live uptime](https://commerceforai.com/status). Full comparison: [commerceforai.com/docs/compare](https://commerceforai.com/docs/compare).
+
 ## For AI agents
 
 - **Guide:** [`llms.txt`](https://commerceforai.com/llms.txt) is a short index; each topic is its own small page.
 - **Every docs page as markdown:** add `.md` to its URL, e.g. `https://commerceforai.com/docs/quickstart.md`.
 - **Errors teach:** an unknown field names the closest real one, a mistyped path suggests the right one.
-- **Verify without a browser:** `setupStatus()` lists what's left with the exact fix; `simulateOrder()` runs a full test purchase.
+- **Verify without a browser:** `setupStatus()` lists what's left with the exact fix; `npx commerceforai test-order` (in code `simulateOrder()`) runs a full test purchase. Stripe's hosted checkout page doesn't load in headless browsers, so don't script it.
 - **Least privilege:** a store owner can create an API key that is read-only, or capped per refund, shipping label and gift card.
 
 ### Run a store from an agent (MCP)
@@ -102,3 +117,5 @@ This repository is published from CommerceForAI's main repository, so pull reque
 [Docs](https://commerceforai.com/docs) · [Status](https://commerceforai.com/status) · [API reference](https://commerceforai.com/docs/api-reference) · [OpenAPI](https://api.commerceforai.com/openapi.json) · [Pricing](https://commerceforai.com/pricing) · [Terms](https://commerceforai.com/terms) · [Privacy](https://commerceforai.com/privacy)
 
 MIT licensed.
+
+CommerceForAI is made by Codehorts LLC, 1421 B St, Eureka, CA 95501 · [lee@commerceforai.com](mailto:lee@commerceforai.com)

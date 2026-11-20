@@ -23,7 +23,7 @@ async function Product({ params }: { params: Promise<{ id: string }> }) {
         <form action={addToCart}>
           {variants.length > 1 ? (
             <label className="cfa-field">
-              Option
+              {Object.keys(variants[0]?.options ?? {}).join(" / ") || "Option"}
               <select name="variant_id" defaultValue={buyable[0]?.id}>
                 {variants.map((v) => {
                   const soldOut = v.inventory.available !== null && v.inventory.available <= 0;

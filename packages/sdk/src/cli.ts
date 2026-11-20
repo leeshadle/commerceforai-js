@@ -16,14 +16,17 @@ Commands:
   init       Create a free test-mode store and API key (no sign-up needed)
   claim      Open the page that makes you this test store's owner, in your browser
   go-live    Open the page where the store owner connects Stripe for real orders
+  export     Save all of this store's data (products, orders, customers, returns,
+             discounts, subscriptions, gift cards...) as JSON files in a folder
+  test-order Prove a purchase works, no browser: runs a real test-mode order
+             (stock, order, events, webhooks) and prints what happened
 
-claim and go-live use COMMERCEFORAI_API_KEY (from the environment, .env.local or .env).
+
+claim, go-live, test-order and export use COMMERCEFORAI_API_KEY (from the environment, .env.local or .env).
 Their links log someone in, so they open in the browser instead of being printed;
 add --print to show the link (e.g. over SSH), and treat it like a password.
 
 Options for init:
-
-Options:
   --template nextjs    Also add a working storefront to this Next.js app (App Router):
                        /shop product grid, product pages, cart, Stripe checkout,
                        thank-you page and order lookup. Never overwrites files.
@@ -37,6 +40,13 @@ Options:
   --json               Print JSON (for agents and scripts)
   --base-url <url>     API base URL (default: https://api.commerceforai.com)
   -h, --help           Show this help
+
+Options for test-order (test stores only; never charges a card or emails anyone):
+  --variant <id>       Variant to buy, repeatable as --variant a,b (default: the first
+                       in-stock variant of each of up to 3 products)
+  --quantity <n>       Quantity of each (default 1)
+  --fulfill            Also mark the order shipped
+  --json               Print the full simulated order as JSON
 `;
 
 function parse(argv: string[]) {
@@ -45,7 +55,7 @@ function parse(argv: string[]) {
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
     if (a === "-h" || a === "--help") o.help = true;
-    else if (a === "--no-write" || a === "--force" || a === "--json" || a === "--print") o[a.slice(2)] = true;
+    else if (a === "--no-write" || a === "--force" || a === "--json" || a === "--print" || a === "--fulfill") o[a.slice(2)] = true;
     else if (a.startsWith("--")) {
       const [k, inline] = a.slice(2).split("=", 2) as [string, string | undefined];
       o[k] = inline ?? argv[++i] ?? "";
@@ -121,7 +131,8 @@ async function init(o: Record<string, string | boolean>) {
       ok: true, store_id: json.store_id, mode: json.mode, api_key: json.api_key,
       // The claim link logs whoever opens it in as the owner: have the user run `npx commerceforai claim` rather than showing it.
       claim_url: json.claim_url, claim_command: "npx commerceforai claim",
-      env_file: write ? envFile : null, docs: "https://commerceforai.com/llms.txt", ...(sc ? { template: sc } : {}),
+      env_file: write ? envFile : null, docs: "https://commerceforai.com/llms.txt",
+      test_purchase: "npx commerceforai test-order (no browser; Stripe's hosted checkout doesn't run headless)", ...(sc ? { template: sc } : {}),
     }));
     return;
   }
@@ -138,11 +149,17 @@ When it's ready for real orders: npx commerceforai go-live
 ✓ Created test store "${json.name}" (${json.store_id})
 ${write ? `✓ Saved COMMERCEFORAI_API_KEY to ${envFile}` : `  API key: ${json.api_key}`}${write && !gitignored ? `\n! Add ${envFile.split("/").pop()} to .gitignore so the key isn't committed` : ""}
 
-Test mode is free forever. Pay with card 4242 4242 4242 4242.
+Test mode is free forever.
 
 Next:
   npm install commerceforai
+  Add products (commerce.products.create, or connect Printify/Printful)
   Docs for you and your agent: https://commerceforai.com/llms.txt
+
+Prove a purchase works (no browser): npx commerceforai test-order
+  Stripe's hosted checkout page doesn't run in headless browsers, so don't script it;
+  test-order runs the same purchase path (stock, order, events, webhooks). To pay by
+  hand in your own browser, use card 4242 4242 4242 4242.
 
 To manage this test store in the dashboard, the owner claims it:
   npx commerceforai claim     (opens their browser; the link logs them in, so it isn't printed)
@@ -198,7 +215,11 @@ function printScaffold(sc: Scaffold, first: string) {
 Next:
 ${sc.install_command ? `  ${sc.install_command}
 ` : ""}${(sc.next_steps ?? []).map((x) => `  ${x}\n`).join("")}  Add a product (SDK, MCP, or connect Printify/Printful), then run your dev server and open ${sc.open}
-  Pay with test card 4242 4242 4242 4242. Agents: verify without a browser with commerce.store.simulateOrder().
+
+Prove a purchase works (no browser): npx commerceforai test-order
+  Stripe's hosted checkout page doesn't run in headless browsers, so don't script it;
+  test-order runs the same purchase path (stock, order, events, webhooks). To pay by
+  hand in your own browser, use card 4242 4242 4242 4242.
 `);
 }
 
@@ -245,8 +266,99 @@ async function openOwnerLink(which: "claim" | "go-live", o: Record<string, strin
   else console.log(`${o.print ? "" : "Couldn't open a browser here. "}Open this link in the store owner's browser. It logs them in, so don't share it:\n  ${body.url}`);
 }
 
+const fmt = (n: number, cur = "usd") => new Intl.NumberFormat("en-US", { style: "currency", currency: cur.toUpperCase() }).format(n / 100);
+
+/** Runs a simulated test-mode purchase so an agent can prove checkout works without driving Stripe's page. */
+async function testOrder(o: Record<string, string | boolean>) {
+  const base = String(o["base-url"] ?? process.env.COMMERCEFORAI_BASE_URL ?? "https://api.commerceforai.com").replace(/\/$/, "");
+  const fail = (message: string): never => {
+    if (o.json) console.log(JSON.stringify({ ok: false, error: { message } })); else console.error(message);
+    process.exit(1);
+  };
+  const key = findKey(o);
+  if (!key) return fail("No COMMERCEFORAI_API_KEY found in the environment, .env.local or .env. Run `npx commerceforai init` first.");
+  if (!key.startsWith("cfa_test_")) return fail("test-order only runs on test stores (keys starting cfa_test_). Live stores take real payments.");
+  const call = async (method: string, path: string, body?: unknown) => {
+    const res = await fetch(base + path, { method, headers: { authorization: `Bearer ${key}`, "content-type": "application/json", "user-agent": "commerceforai-cli" }, body: body === undefined ? undefined : JSON.stringify(body) })
+      .catch((e) => fail(`Couldn't reach ${base}: ${e instanceof Error ? e.message : e}`));
+    const json: any = await res.json().catch(() => null);
+    if (!res.ok) fail(json?.error?.message ?? `HTTP ${res.status} on ${path}`);
+    return json;
+  };
+  const quantity = Math.max(1, Number(o.quantity ?? 1) || 1);
+  let ids = typeof o.variant === "string" ? o.variant.split(",").map((s) => s.trim()).filter(Boolean) : [];
+  if (!ids.length) {
+    const products = await call("GET", "/v1/products?limit=100");
+    for (const p of products.data ?? []) {
+      if (p.active === false) continue;
+      const v = (p.variants ?? []).find((v: any) => !v.recurring && (v.inventory?.available == null || v.inventory.available >= quantity));
+      if (v) ids.push(v.id);
+      if (ids.length >= 3) break;
+    }
+    if (!ids.length) fail("This store has no in-stock products yet. Create one first, e.g. commerce.products.create({ name, price, inventory }), then run test-order again.");
+  }
+  const sim = await call("POST", "/v1/simulate/order", { items: ids.map((variant_id) => ({ variant_id, quantity })), ...(o.fulfill ? { fulfill: true } : {}) });
+  if (o.json) { console.log(JSON.stringify({ ok: true, ...sim })); return; }
+  const ord = sim.order;
+  console.log(`✓ Test purchase succeeded: order #${ord.number} (${ord.id}) is ${ord.status}, total ${fmt(ord.total, ord.currency)}`);
+  for (const it of ord.items ?? []) console.log(`    ${it.quantity} × ${it.product_name}${it.variant_name && it.variant_name !== "Default" ? ` (${it.variant_name})` : ""}`);
+  if (sim.events?.length) console.log(`  Events: ${sim.events.join(", ")}`);
+  for (const w of sim.webhooks ?? []) console.log(`  Webhook ${w.url}: ${w.deliveries} deliver${w.deliveries === 1 ? "y" : "ies"}`);
+  for (const e of sim.emails_that_would_send ?? []) console.log(`  A real order would email: ${e.subject}${e.to ? ` (to ${e.to})` : ""}`);
+  for (const n of sim.notes ?? []) console.log(`  Note: ${n}`);
+}
+
+/** Saves every resource the store's key can read to ./commerceforai-export-<date>/ (or --out). */
+async function exportStore(o: Record<string, string | boolean>) {
+  const base = String(o["base-url"] ?? process.env.COMMERCEFORAI_BASE_URL ?? "https://api.commerceforai.com").replace(/\/$/, "");
+  const fail = (message: string): never => { console.error(message); process.exit(1); };
+  const key = findKey(o) ?? fail("No COMMERCEFORAI_API_KEY found in the environment, .env.local or .env.");
+  const get = async (path: string) => {
+    const res = await fetch(base + path, { headers: { authorization: `Bearer ${key}`, "user-agent": "commerceforai-cli" } }).catch((e) => fail(`Couldn't reach ${base}: ${e instanceof Error ? e.message : e}`));
+    const json: any = await res.json().catch(() => null);
+    if (!res.ok) fail(json?.error?.message ?? `HTTP ${res.status} on ${path}`);
+    return json;
+  };
+  const all = async (path: string, paging: "cursor" | "page" | "none") => {
+    const out: any[] = [];
+    if (paging === "none") return (await get(path)).data ?? [];
+    for (let n = 1, after = ""; n < 10_000; n++) {
+      const sep = path.includes("?") ? "&" : "?";
+      const body = await get(`${path}${sep}limit=100${paging === "page" ? `&page=${n}` : after ? `&starting_after=${after}` : ""}`);
+      const data: any[] = body.data ?? [];
+      out.push(...data);
+      const more = body.has_more ?? data.length === 100;
+      if (!more || !data.length) break;
+      after = data[data.length - 1].id;
+    }
+    return out;
+  };
+  const dir = resolve(String(o.out ?? `commerceforai-export-${new Date().toISOString().slice(0, 10)}`));
+  mkdirSync(dir, { recursive: true });
+  const parts: [string, () => Promise<unknown>][] = [
+    ["store", () => get("/v1/store")],
+    ["products", () => all("/v1/products", "cursor")],
+    ["orders", () => all("/v1/orders", "cursor")],
+    ["customers", () => all("/v1/customers", "page")],
+    ["returns", () => all("/v1/returns", "cursor")],
+    ["collections", () => all("/v1/collections", "none")],
+    ["discounts", () => all("/v1/discounts", "none")],
+    ["subscriptions", () => all("/v1/subscriptions", "none")],
+    ["gift_cards", () => all("/v1/gift_cards", "none")],
+  ];
+  for (const [name, load] of parts) {
+    const data = await load();
+    writeFileSync(join(dir, `${name}.json`), JSON.stringify(data, null, 2) + "\n");
+    console.log(`✓ ${name}.json${Array.isArray(data) ? ` (${data.length})` : ""}`);
+  }
+  console.log(`\nSaved to ${dir}. It contains customer details: keep it private and out of git.
+Payments, payouts and card data live in your own Stripe account and stay there.`);
+}
+
 const { o, pos } = parse(process.argv.slice(2));
 if (o.help || !pos[0]) { console.log(HELP); process.exit(pos[0] ? 0 : o.help ? 0 : 1); }
 if (pos[0] === "init") await init(o);
 else if (pos[0] === "claim" || pos[0] === "go-live") await openOwnerLink(pos[0], o);
+else if (pos[0] === "test-order") await testOrder(o);
+else if (pos[0] === "export") await exportStore(o);
 else { console.error(`Unknown command "${pos[0]}".\n\n${HELP}`); process.exit(1); }
