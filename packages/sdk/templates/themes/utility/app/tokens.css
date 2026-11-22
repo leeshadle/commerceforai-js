@@ -1,0 +1,27 @@
+/* Theme tokens: generated from cards/notom.tokens.json. Swap this file to re-skin the store.
+   Raw tokens are --t-*; globals.css maps them into Tailwind's @theme. */
+:root {
+  --t-bg: #ffffff;
+  --t-surface: #e8e8e6;
+  --t-text: #000000;
+  --t-muted: rgba(0, 0, 0, 0.75);
+  --t-faint: rgba(0, 0, 0, 0.45);
+  --t-border: rgba(0, 0, 0, 0.12);
+  --t-accent: #121212;
+  --t-accent-text: #ffffff;
+  --t-announcement: #121212;
+  --t-announcement-text: #ffffff;
+
+  --t-font-display: var(--font-inter-tight), Helvetica, Arial, sans-serif;
+  --t-font-body: var(--font-dm-mono), ui-monospace, monospace;
+  --t-tracking-display: 0.015em;
+  --t-tracking-body: 0.1em;
+
+  --t-radius-button: 0px;
+  --t-radius-card: 0px;
+
+  --t-gutter: 10px;
+  --t-section: 64px;
+  --t-grid-gap: 8px;
+  --t-header-height: 60px;
+}

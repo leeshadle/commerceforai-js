@@ -33,6 +33,12 @@ Options for init:
   --template astro     The same storefront for an Astro project (server-rendered
                        pages under src/pages/shop; needs a server adapter).
                        Reuses COMMERCEFORAI_API_KEY if it's already set.
+  --theme <name>       Start a new store from a complete theme (Next.js + Tailwind:
+                       home, collection, product, cart, Stripe checkout) in an empty
+                       folder, then create the test store for it. Themes:
+                       https://commerceforai.com/themes (e.g. --theme utility)
+  --dir <path>         With --theme: the folder to create (default: this folder,
+                       which must be empty)
   --name <name>        Store name (default: this folder's package.json name)
   --env-file <path>    Where to save COMMERCEFORAI_API_KEY (default: .env.local)
   --no-write           Don't write any file; just print the key
@@ -73,6 +79,17 @@ function defaultName() {
 }
 
 async function init(o: Record<string, string | boolean>) {
+  if (o.theme && o.template) {
+    const msg = "Use --theme or --template, not both: a theme is already a complete store.";
+    if (o.json) console.log(JSON.stringify({ ok: false, error: { type: "invalid_request", message: msg } })); else console.error(msg);
+    process.exit(1);
+  }
+  // --theme: copy the theme app into an empty folder and work from there (env file, store name).
+  const theme = typeof o.theme === "string" ? setupTheme(o.theme, typeof o.dir === "string" ? o.dir : ".") : null;
+  if (theme && !theme.ok) {
+    if (o.json) console.log(JSON.stringify({ ok: false, error: { type: "invalid_request", message: theme.error } })); else console.error(theme.error);
+    process.exit(1);
+  }
   const base = String(o["base-url"] ?? process.env.COMMERCEFORAI_BASE_URL ?? "https://api.commerceforai.com").replace(/\/$/, "");
   const envFile = resolve(String(o["env-file"] ?? ".env.local"));
   const write = !o["no-write"];
@@ -133,7 +150,25 @@ async function init(o: Record<string, string | boolean>) {
       claim_url: json.claim_url, claim_command: "npx commerceforai claim",
       env_file: write ? envFile : null, docs: "https://commerceforai.com/llms.txt",
       test_purchase: "npx commerceforai test-order (no browser; Stripe's hosted checkout doesn't run headless)", ...(sc ? { template: sc } : {}),
+      ...(theme?.ok ? { theme: { name: theme.name, dir: theme.dir, files: theme.files, next_steps: theme.nextSteps } } : {}),
     }));
+    return;
+  }
+  if (theme?.ok) {
+    console.log(`
+✓ Created a "${theme.name}" store in ${theme.shown} (${theme.files} files)
+✓ Created test store "${json.name}" (${json.store_id})${write ? ` and saved COMMERCEFORAI_API_KEY to ${envFile.split("/").pop()}` : `\n  API key: ${json.api_key}`}
+
+Next:
+  ${theme.nextSteps.join("\n  ")}
+  Store name, hero and copy: lib/site.ts. The whole look: app/tokens.css.
+  Add products (commerce.products.create, the MCP server, or connect Printify/Printful).
+  Until then the theme shows its demo products.
+
+Prove a purchase works (no browser): npx commerceforai test-order
+To manage this test store in the dashboard, the owner claims it: npx commerceforai claim
+When it's ready for real orders: npx commerceforai go-live
+`);
     return;
   }
   if (sc) {
@@ -167,6 +202,49 @@ To manage this test store in the dashboard, the owner claims it:
 When it's ready for real orders: npx commerceforai go-live (opens the owner's browser).
 That one page signs them in, copies the store to live mode, and takes them to Connect Stripe.
 `);
+}
+
+// ---------- --theme <name> ----------
+
+type ThemeSetup =
+  | { ok: true; name: string; dir: string; shown: string; files: number; nextSteps: string[] }
+  | { ok: false; error: string };
+
+// Never copied into a new store: build output, installs, local links and keys.
+const THEME_SKIP = new Set(["node_modules", ".next", ".vercel", "screens", ".env", ".env.local", "tsconfig.tsbuildinfo"]);
+// npm strips .gitignore files from published packages, so the CLI writes one (keeps the API key out of git).
+const THEME_GITIGNORE = "node_modules/\n.next/\n.vercel/\n*.tsbuildinfo\n.env*\n";
+
+function setupTheme(name: string, dirArg: string): ThemeSetup {
+  const root = fileURLToPath(new URL("../templates/themes/", import.meta.url));
+  const available = existsSync(root) ? readdirSync(root).filter((d) => statSync(join(root, d)).isDirectory()) : [];
+  if (!available.includes(name)) return { ok: false, error: `Unknown theme "${name}". Available: ${available.join(", ") || "none"} (see https://commerceforai.com/themes).` };
+  const dir = resolve(dirArg);
+  const shown = relative(process.cwd(), dir) || ".";
+  if (existsSync(dir) && readdirSync(dir).some((f) => f !== ".git" && f !== ".DS_Store"))
+    return { ok: false, error: `${shown === "." ? "This folder" : shown} isn't empty. Run in an empty folder, or pass --dir my-store to create one.` };
+  const from = join(root, name);
+  let files = 0;
+  const copy = (src: string, dest: string) => {
+    for (const f of readdirSync(src)) {
+      if (THEME_SKIP.has(f) || f === ".gitignore") continue;
+      const s = join(src, f), d = join(dest, f);
+      if (statSync(s).isDirectory()) copy(s, d);
+      else { mkdirSync(dirname(d), { recursive: true }); writeFileSync(d, readFileSync(s)); files++; }
+    }
+  };
+  copy(from, dir);
+  writeFileSync(join(dir, ".gitignore"), THEME_GITIGNORE);
+  // Name the app after its folder.
+  const pkgPath = join(dir, "package.json");
+  try {
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
+    pkg.name = (dir.split(/[\\/]/).pop() || "store").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") || "store";
+    writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
+  } catch {}
+  process.chdir(dir);
+  const pm = existsSync(join(dir, "pnpm-lock.yaml")) ? "pnpm" : "npm";
+  return { ok: true, name, dir, shown, files: files + 1, nextSteps: [...(shown === "." ? [] : [`cd ${shown}`]), `${pm} install`, `${pm} run dev   (http://localhost:3000)`] };
 }
 
 // ---------- --template nextjs ----------

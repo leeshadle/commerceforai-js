@@ -1,0 +1,78 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+/* Map theme tokens into Tailwind so classes like bg-surface, font-display and px-gutter follow the theme. */
+@theme inline {
+  --color-bg: var(--t-bg);
+  --color-surface: var(--t-surface);
+  --color-ink: var(--t-text);
+  --color-muted: var(--t-muted);
+  --color-faint: var(--t-faint);
+  --color-line: var(--t-border);
+  --color-accent: var(--t-accent);
+  --color-accent-text: var(--t-accent-text);
+  --color-announce: var(--t-announcement);
+  --color-announce-text: var(--t-announcement-text);
+  --font-display: var(--t-font-display);
+  --font-mono: var(--t-font-body);
+  --spacing-gutter: var(--t-gutter);
+  --spacing-section: var(--t-section);
+  --spacing-gap: var(--t-grid-gap);
+  --spacing-header: var(--t-header-height);
+  --radius-btn: var(--t-radius-button);
+  --radius-card: var(--t-radius-card);
+}
+
+@layer base {
+  body {
+    background: var(--t-bg);
+    color: var(--t-muted);
+    font-family: var(--t-font-body);
+    font-size: 16px;
+    line-height: 1.8;
+  }
+  h1, h2, h3 {
+    font-family: var(--t-font-display);
+    letter-spacing: var(--t-tracking-display);
+    color: var(--t-text);
+    font-weight: 400;
+  }
+}
+
+@layer components {
+  /* Small tracked monospace label: nav, prices, specs. */
+  .label {
+    font-family: var(--t-font-body);
+    letter-spacing: var(--t-tracking-body);
+    text-transform: uppercase;
+    font-size: 13px;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 46px;
+    padding: 0 30px;
+    font-family: var(--t-font-display);
+    font-size: 14px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border-radius: var(--t-radius-button);
+    transition: background-color 0.15s, color 0.15s;
+    cursor: pointer;
+  }
+  .btn-solid { background: var(--t-accent); color: var(--t-accent-text); }
+  .btn-solid:hover { background: #000; }
+  .btn-outline { border: 1px solid currentColor; color: var(--t-text); }
+  .btn-outline:hover { background: var(--t-text); color: var(--t-bg); }
+  .btn-ghost-light { border: 1px solid #fff; color: #fff; }
+  .btn-ghost-light:hover { background: #fff; color: #000; }
+  .btn:disabled { opacity: 0.4; pointer-events: none; }
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.marquee { animation: marquee 40s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .marquee { animation: none; } }

@@ -24,7 +24,7 @@ export interface GuardrailConfig {
   allow: Set<string> | null;
 }
 
-export const VERSION = "0.1.11";
+export const VERSION = "0.1.12";
 
 const NO_KEY = "No API key: set COMMERCEFORAI_API_KEY in this MCP server's environment. For a free test store with a key and no sign-up, run `npx commerceforai init` (or POST https://api.commerceforai.com/sandbox/stores). Or connect to the hosted server instead: https://api.commerceforai.com/mcp (sign in with the store owner's account).";
 
@@ -33,6 +33,7 @@ export const TOOLSETS: Record<string, string[]> = {
   core: ["get_store", "setup_status", "check_storefront", "simulate_order", "list_products", "get_product", "create_product", "create_products", "update_product", "update_variant",
     "list_inventory", "adjust_inventory", "create_checkout", "list_orders", "get_order", "fulfill_order", "refund_order", "get_approval", "add_order_note", "list_events",
     "configure_checkout_shipping", "create_go_live_link"],
+  design: ["list_design_references", "get_theme"],
   catalog: ["list_collections", "save_collection", "delete_collection", "upload_image", "copy_product_images", "import_from_shopify", "import_catalog"],
   print_on_demand: ["printify_catalog", "create_in_printify", "publish_in_printify", "submit_fulfillment", "import_catalog"],
   shipping: ["get_shipping_rates", "buy_shipping_label", "list_returns", "create_return", "approve_return", "reject_return", "receive_return"],
@@ -55,6 +56,7 @@ Start with setup_status: it lists what's left before the store can take orders, 
 All money is an integer in cents (2500 = $25.00). Keys starting cfa_test_ are a test store: nothing is charged, and simulate_order proves the flow end to end.
 Tools that move money or reach customers (refund_order, buy_shipping_label, apply_store_sync into a live store, publish_in_printify, configure_sales_tax) need the owner's OK first.
 Errors say what to change; a "warnings" list in a result means a field you sent was ignored.
+Building or restyling the storefront: list_design_references and get_theme offer complete looks and ready-made themes (no key needed; with ?toolsets=…, add "design"). Let the user pick one look and apply it to every page.
 Fewer tools: connect with ?toolsets=core (or core,shipping,…; groups: ${Object.keys(TOOLSETS).join(", ")}), or set COMMERCEFORAI_TOOLSETS for the local server.
 Full guide: https://commerceforai.com/llms.txt`;
 
@@ -84,7 +86,7 @@ export function buildServer(commerce: Commerce, cfg: GuardrailConfig) {
 
   const tool = <S extends z.ZodRawShape>(
     name: string,
-    def: { description: string; input: S; write?: boolean; destructive?: boolean },
+    def: { description: string; input: S; write?: boolean; destructive?: boolean; /** Works without an API key (public data). */ noKey?: boolean },
     run: (args: z.infer<z.ZodObject<S>>) => Promise<ReturnType<typeof text>>,
   ) => {
     if (cfg.allow && !cfg.allow.has(name)) return;
@@ -99,7 +101,7 @@ export function buildServer(commerce: Commerce, cfg: GuardrailConfig) {
         annotations: { readOnlyHint: !def.write, destructiveHint: !!def.destructive, openWorldHint: false },
       },
       (async (args: any) => {
-        if (cfg.missingKey) return text(NO_KEY, true);
+        if (cfg.missingKey && !def.noKey) return text(NO_KEY, true);
         try { return await run(args); } catch (e) { return text(`Unexpected error: ${e instanceof Error ? e.message : e}`, true); }
       }) as any,
     );
@@ -606,7 +608,65 @@ export function buildServer(commerce: Commerce, cfg: GuardrailConfig) {
     return out(await commerce.returns.receive(a.return_id, { restock: a.restock, refund: a.refund }));
   });
 
+  // ---------- storefront design (public data from commerceforai.com; no API key needed) ----------
+  tool("list_design_references", {
+    description:
+      "Before styling a storefront: ecommerce looks measured from real, well-designed stores. Each has the look in one line, what makes it work, colours, fonts (free Google Font stand-ins for commercial ones) and button corners, plus a ready-made theme when one exists. Show the user a few that fit what they sell, let them pick, then restyle every page with that one look (don't mix looks). Filter by category (e.g. Apparel, Coffee, Skincare); pass slug for one reference in full.",
+    input: {
+      category: z.string().optional().describe("e.g. Apparel, Food & drink, Skincare, Tools & gear (case-insensitive)"),
+      slug: z.string().optional().describe("One reference in full, e.g. notom"),
+    },
+    noKey: true,
+  }, async ({ category, slug }) => {
+    const r = await sitePublic<{ references: Record<string, unknown>[]; measured: string }>("/inspiration.json");
+    if ("error" in r) return text(r.error, true);
+    let refs = r.data.references;
+    if (slug) {
+      const one = refs.find((x) => x.slug === slug);
+      return one ? text(one) : text(`No reference "${slug}". Available: ${refs.map((x) => x.slug).join(", ")}`, true);
+    }
+    if (category) refs = refs.filter((x) => String(x.category).toLowerCase() === category.toLowerCase());
+    // The list stays short: the look and the values to apply. Ask for a slug to get "what makes it work".
+    return text({
+      measured: r.data.measured,
+      page: "https://commerceforai.com/inspiration",
+      count: refs.length,
+      references: refs.map(({ slug: s, name, category: c, look, colors, fonts, buttonRadius, theme }) => ({ slug: s, name, category: c, look, colors, fonts, buttonRadius, theme })),
+      next: "Pass slug for one reference's full details. If it has a theme, get_theme gives install steps.",
+    });
+  });
+
+  tool("get_theme", {
+    description:
+      "CommerceForAI storefront themes: complete Next.js (App Router) + Tailwind stores (home, collection, product, cart, Stripe checkout) wired to this API. Without slug, lists them; with slug, returns the install commands, live demo, design tokens and what each page looks like. Install a theme into an empty folder for a new store; for an existing app, use its tokens and page notes to restyle instead.",
+    input: { slug: z.string().optional().describe("e.g. utility") },
+    noKey: true,
+  }, async ({ slug }) => {
+    const r = await sitePublic<{ themes: Record<string, unknown>[] }>("/themes.json");
+    if ("error" in r) return text(r.error, true);
+    const themes = r.data.themes;
+    if (!slug) return text({ count: themes.length, themes: themes.map(({ slug: s, name, tagline, demoUrl, bestFor }) => ({ slug: s, name, tagline, demoUrl, bestFor })), next: "Pass slug for install steps and tokens." });
+    const one = themes.find((t) => t.slug === slug);
+    return one ? text(one) : text(`No theme "${slug}". Available: ${themes.map((t) => t.slug).join(", ") || "none yet"}`, true);
+  });
+
   return server;
+}
+
+const SITE = (process.env.COMMERCEFORAI_SITE_URL ?? "https://commerceforai.com").replace(/\/$/, "");
+
+/** Public JSON from the website (design references, themes). Cached for the life of the process. */
+const siteCache = new Map<string, Promise<{ data: any } | { error: string }>>();
+function sitePublic<T>(path: string): Promise<{ data: T } | { error: string }> {
+  if (!siteCache.has(path)) {
+    const p = fetch(`${SITE}${path}`, { headers: { accept: "application/json" } })
+      .then(async (res) => (res.ok ? { data: (await res.json()) as T } : { error: `Couldn't load ${SITE}${path} (HTTP ${res.status}). The same data is at ${SITE}${path.replace(".json", "")}.` }))
+      .catch((e) => ({ error: `Couldn't reach ${SITE}${path}: ${e instanceof Error ? e.message : e}` }));
+    // Don't cache failures, so the next call retries.
+    p.then((r) => { if ("error" in r) siteCache.delete(path); });
+    siteCache.set(path, p);
+  }
+  return siteCache.get(path)! as Promise<{ data: T } | { error: string }>;
 }
 
 // Run as a stdio server when executed directly.
