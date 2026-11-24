@@ -1,5 +1,7 @@
 # CommerceForAI
 
+[![leeshadle/commerceforai-js MCP server](https://glama.ai/mcp/servers/leeshadle/commerceforai-js/badges/score.svg)](https://glama.ai/mcp/servers/leeshadle/commerceforai-js)
+
 **Commerce for apps built by AI agents.** Products, inventory, Stripe checkout, orders, shipping, returns, subscriptions, gift cards, sales tax and print-on-demand, on top of the merchant's own Stripe account. One API key, and a test store with no sign-up.
 
 This repository holds the open-source client side of [CommerceForAI](https://commerceforai.com):
