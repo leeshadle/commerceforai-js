@@ -66,7 +66,7 @@ An agent asked to "add a store" will often write an orders table, decrement stoc
 - **Emails, sales tax, discounts, gift cards, subscriptions, invoices** without extra services.
 - **Customer pages** for tracking, returns and subscriptions, so there is no login system to build.
 
-Payments run on the merchant's own Stripe account. Pricing: free in test mode and for the first 100 orders a month, then 1% per order, never more than $29 a month per store ([details](https://commerceforai.com/pricing)).
+Payments run on the merchant's own Stripe account. Pricing: free in test mode and for the first 100 orders a month, then $20 a month per store, with no transaction fees ([details](https://commerceforai.com/pricing)).
 
 ## CommerceForAI vs Shopify, Medusa or Stripe alone
 
